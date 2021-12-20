@@ -152,8 +152,8 @@ lazy val chipyard = (project in file("generators/chipyard"))
   .dependsOn(testchipip, rocketchip, boom, hwacha, sifive_blocks, sifive_cache, iocell,
     sha3, // On separate line to allow for cleaner tutorial-setup patches
     dsptools, `rocket-dsp-utils`,
-    gemmini, icenet, tracegen, cva6, nvdla, sodor, ibex, fft_generator,
-    constellation, mempress, saturn, pythia)
+    gemmini, icenet, tracegen, cva6, nvdla, sodor, ibex, constellation, pythia, saturn,
+    bar_cache)
   .settings(libraryDependencies ++= rocketLibDeps.value)
   .settings(
     libraryDependencies ++= Seq(
@@ -281,6 +281,11 @@ lazy val sifive_cache = (project in file("generators/sifive-cache"))
     Compile / scalaSource := baseDirectory.value / "design/craft")
   .dependsOn(rocketchip)
   .settings(libraryDependencies ++= rocketLibDeps.value)
+
+lazy val bar_cache = (project in file ("generators/bar-cache"))
+  .dependsOn(rocketchip)
+  .settings(libraryDependencies ++= rocketLibDeps.value)
+  .settings(commonSettings)
 
 // Library components of FireSim
 lazy val midas      = ProjectRef(firesimDir, "midas")
