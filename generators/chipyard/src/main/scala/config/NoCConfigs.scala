@@ -29,8 +29,20 @@ import scala.collection.immutable.ListMap
  *  |    |    |    |
  *  0 -- 1 -- 2 -- 3
  *
- * This table describes the mappings of each edge onto the network
+ * Topology:
  *
+ * 12 - 13 - 14 - 15
+ *  |    |    |    |
+ *  8 -- 9 - 10 - 11
+ *  |    |    |    |
+ *  4 -- 5 -- 6 -- 7
+ *  |    |    |    |
+ *  0 -- 1 -- 2 -- 3
+ *
+ * This table describes the mappings of each edge onto the network
+ * Note that L2s are managers (outwards edges) from the sbus, but are
+ * clients (inwards edges) into the mbus
+ * 
  * SI/SO: Inward/outward names into sbus
  * MI/MO: Inward/outward names into mbus
  *
