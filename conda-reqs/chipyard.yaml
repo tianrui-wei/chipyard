@@ -30,7 +30,7 @@ dependencies:
     - binutils
 
     - dromajo # from ucb-bar channel - https://github.com/riscv-boom/dromajo
-    - firtool==1.30.0 # from ucb-bar channel - https://github.com/ucb-bar/firtool-feedstock
+    - firtool # from ucb-bar channel - https://github.com/ucb-bar/firtool-feedstock
 
     # misc
     - autoconf
