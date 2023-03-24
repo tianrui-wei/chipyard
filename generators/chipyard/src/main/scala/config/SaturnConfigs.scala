@@ -3,6 +3,7 @@ package chipyard
 import freechips.rocketchip.config.{Config}
 
 class SaturnConfig extends Config(
+  new chipyard.config.WithTraceIO ++                             // enable the traceio
   new saturn.common.WithNSaturnCores(1) ++
   new chipyard.config.AbstractConfig
 )

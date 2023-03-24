@@ -80,6 +80,7 @@ extern "C" void cospike_set_sysinfo(char* isa, int pmpregions,
 extern "C" void cospike_cosim(long long int cycle,
                               long long int hartid,
                               int has_wdata,
+							  int has_vwdata,
                               int valid,
                               long long int iaddr,
                               unsigned long int insn,
@@ -87,7 +88,16 @@ extern "C" void cospike_cosim(long long int cycle,
                               int raise_interrupt,
                               unsigned long long int cause,
                               unsigned long long int wdata,
-                              int priv)
+                              int priv,
+                              unsigned long long int vwdata_0,
+                              unsigned long long int vwdata_1,
+                              unsigned long long int vwdata_2,
+                              unsigned long long int vwdata_3,
+                              unsigned long long int vwdata_4,
+                              unsigned long long int vwdata_5,
+                              unsigned long long int vwdata_6,
+                              unsigned long long int vwdata_7
+							  )
 {
   assert(info);
   if (unlikely(!sim)) {
@@ -102,7 +112,7 @@ extern "C" void cospike_cosim(long long int cycle,
                     nullptr,
                     info->isa.c_str(),
                     "MSU",
-                    "vlen:128,elen:64",
+                    "vlen:512,elen:64",
                     false,
                     endianness_little,
                     info->pmpregions,
@@ -289,9 +299,19 @@ extern "C" void cospike_cosim(long long int cycle,
   if (valid) {
     p->clear_waiting_for_interrupt();
     printf("%d Cosim: %lx", cycle, iaddr);
-    // if (has_wdata) {
-    //   printf(" s: %lx", wdata);
-    // }
+    if (has_wdata) {
+      printf(" %lx", wdata);
+    }
+    if (has_vwdata) {
+      printf(" %llx", vwdata_0);
+      printf(" %llx", vwdata_1);
+      printf(" %llx", vwdata_2);
+      printf(" %llx", vwdata_3);
+      printf(" %llx", vwdata_4);
+      printf(" %llx", vwdata_5);
+      printf(" %llx", vwdata_6);
+      printf(" %llx", vwdata_7);
+    }
     printf("\n");
   }
   if (valid || raise_interrupt || raise_exception) {
