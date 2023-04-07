@@ -139,3 +139,6 @@
 [submodule "generators/bar-cache"]
 	path = generators/bar-cache
 	url = git@github.com:ucb-bar/bar-cache.git
+[submodule "toolchains/riscv-tools/force-riscv"]
+	path = toolchains/riscv-tools/force-riscv
+	url = git@github.com:tianrui-wei/force-riscv.git

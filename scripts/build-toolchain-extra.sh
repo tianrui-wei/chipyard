@@ -31,7 +31,6 @@ usage() {
 
 TOOLCHAIN="riscv-tools"
 CLEANAFTERINSTALL=""
-RISCV=""
 FORCE=false
 
 # getopts does not support long options, and is inflexible
@@ -63,13 +62,23 @@ XLEN=64
 echo "Installing extra toolchain utilities/tests to $RISCV"
 
 # install risc-v tools
-export RISCV="$RISCV"
 
 cd "${RDIR}"
 
 SRCDIR="$(pwd)/toolchains/${TOOLCHAIN}"
 [ -d "${SRCDIR}" ] || die "unsupported toolchain: ${TOOLCHAIN}"
 . ./scripts/build-util.sh
+
+echo '==> Installing Force-RISCV Tests'
+(
+	cd $RDIR/toolchains/riscv-tools/force-riscv/
+	make clean
+	source .envrc
+	./setup
+	python3 utils/regression/master_run.py -f tests/riscv/_def_fctrl.py -k all || true
+	mkdir -p $RISCV/riscv${XLEN}-unknown-elf/share/force-riscv
+	find output/regression -name '*.Default.ELF' -exec cp "{}" $RISCV/riscv${XLEN}-unknown-elf/share/force-riscv \;
+)
 
 echo '==>  Installing Spike'
 # disable boost explicitly for https://github.com/riscv-software-src/riscv-isa-sim/issues/834
