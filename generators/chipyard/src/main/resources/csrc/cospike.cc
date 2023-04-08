@@ -80,7 +80,7 @@ extern "C" void cospike_set_sysinfo(char* isa, int pmpregions,
 extern "C" void cospike_cosim(long long int cycle,
                               long long int hartid,
                               int has_wdata,
-							  int has_vwdata,
+                              int has_vwdata,
                               int valid,
                               long long int iaddr,
                               unsigned long int insn,
@@ -369,6 +369,7 @@ extern "C" void cospike_cosim(long long int cycle,
       //TODO: scaling to multi issue reads?
       reg_t mem_read_addr = mem_read.empty() ? 0 : std::get<0>(mem_read[0]);
       for (auto regwrite : log) {
+        // if (regwrite.first == 0) continue;
         int rd = regwrite.first >> 4;
         int type = regwrite.first & 0xf;
         // 0 => int
@@ -380,13 +381,13 @@ extern "C" void cospike_cosim(long long int cycle,
           // Override reads from some CSRs
           uint64_t csr_addr = (insn >> 20) & 0xfff;
           bool csr_read = (insn & 0x7f) == 0x73;
-          if (csr_read) printf("CSR read %lx\n", csr_addr);
-          if (csr_read && (
-                           (csr_addr == 0xf13) || // mimpid
-                           (csr_addr == 0xf12) || // marchid
-                           (csr_addr == 0xf11) || // mvendorid
-                           (csr_addr == 0xb00) || // mcycle
-                           (csr_addr == 0xb02) || // minstret
+          if (csr_read)
+            printf("CSR read %lx\n", csr_addr);
+          if (csr_read && ((csr_addr == 0xf13) ||                   // mimpid
+                           (csr_addr == 0xf12) ||                   // marchid
+                           (csr_addr == 0xf11) ||                   // mvendorid
+                           (csr_addr == 0xb00) ||                   // mcycle
+                           (csr_addr == 0xb02) ||                   // minstret
                            (csr_addr >= 0x3b0 && csr_addr <= 0x3ef) // pmpaddr
                            )) {
             printf("CSR override\n");
@@ -404,14 +405,40 @@ extern "C" void cospike_cosim(long long int cycle,
             printf("Read override %lx\n", mem_read_addr);
             if (mem_read_addr == CLINT_BASE + 4) {
               s->mip->backdoor_write_with_mask(MIP_MSIP, 0);
-            }
-            s->XPR.write(rd, wdata);
+			  s->XPR.write(rd, 0);
+            } else {
+				s->XPR.write(rd, wdata);
+			}
           } else if (wdata != regwrite.second.v[0]) {
             printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
                    regwrite.second.v[0], wdata);
             exit(1);
           }
+	if (has_vwdata) {
+        // type 3 only signals the following groups are vector, we ignore it for now
+        if (type == 2) {
+          int size = p->VU.VLEN;
+          if(((size-1) & size) != 0) {
+			const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+          	for (int idx = size / 64 -1; idx >= 0; --idx) {
+          	  if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
+          	}
+		  }
         }
+
+	}
+
+        }
+
+        // type 3 only signals the following groups are vector, we ignore it for now
+//        if (type == 2) {
+//          int size = p->VU.VLEN;
+//          assert(((size-1) & size) == 0);
+//          const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+//          for (int idx = size / 64 -1; idx >= 0; --idx) {
+//            if (idx == 7) {}
+//          }
+//        }
       }
       if (type == 3) continue;
 
@@ -452,5 +479,6 @@ extern "C" void cospike_cosim(long long int cycle,
       //   exit(-1);
       // }
     }
+
   }
 }
