@@ -156,7 +156,7 @@ extern "C" void cospike_cosim(long long int cycle,
                     plugin_devices,
                     htif_args,
                     dm_config,
-                    nullptr,
+                    "cospike.log",
                     false,
                     nullptr,
                     false,
@@ -255,21 +255,27 @@ extern "C" void cospike_cosim(long long int cycle,
                            )) {
             printf("CSR override\n");
             s->XPR.write(rd, wdata);
-          } else if (!mem_read.empty() && ((magic_addrs.count(mem_read_addr) ||
-					    (tohost_addr && mem_read_addr == tohost_addr) ||
-					    (fromhost_addr && mem_read_addr == fromhost_addr) ||
-					    (CLINT_BASE <= mem_read_addr && mem_read_addr < (CLINT_BASE + CLINT_SIZE))
-					    ))) {
-	    // Don't check reads from tohost, reads from magic memory, or reads from clint
-	    // Technically this could be buggy because log_mem_read only reports vaddrs, but
-	    // no software ever should access tohost/fromhost/clint with vaddrs anyways
-	    printf("Read override %lx\n", mem_read_addr);
-	    s->XPR.write(rd, wdata);
+          } else if (!mem_read.empty() &&
+                     ((magic_addrs.count(mem_read_addr) ||
+                       (tohost_addr && mem_read_addr == tohost_addr) ||
+                       (fromhost_addr && mem_read_addr == fromhost_addr) ||
+                       (CLINT_BASE <= mem_read_addr &&
+                        mem_read_addr < (CLINT_BASE + CLINT_SIZE))))) {
+            // Don't check reads from tohost, reads from magic memory, or reads
+            // from clint Technically this could be buggy because log_mem_read
+            // only reports vaddrs, but no software ever should access
+            // tohost/fromhost/clint with vaddrs anyways
+            printf("Read override %lx\n", mem_read_addr);
+            if (mem_read_addr == CLINT_BASE + 4) {
+              s->mip->backdoor_write_with_mask(MIP_MSIP, 0);
+            }
+            s->XPR.write(rd, wdata);
           } else if (wdata != regwrite.second.v[0]) {
-	    printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd, regwrite.second.v[0], wdata);
-	    exit(1);
-	  }
-	}
+            printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
+                   regwrite.second.v[0], wdata);
+            exit(1);
+          }
+        }
       }
     }
   }
