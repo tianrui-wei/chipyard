@@ -368,27 +368,50 @@ extern "C" void cospike_cosim(long long int cycle,
 
       //TODO: scaling to multi issue reads?
       reg_t mem_read_addr = mem_read.empty() ? 0 : std::get<0>(mem_read[0]);
-
-      int rd = regwrite.first >> 4;
-      int type = regwrite.first & 0xf;
-
-      // 0 => int
-      // 1 => fp
-      // 2 => vec
-      // 3 => vec hint
-      // 4 => csr
-
-      bool ignore_read = (!mem_read.empty() &&
-                          ((magic_addrs.count(mem_read_addr) ||
-                           (tohost_addr && mem_read_addr == tohost_addr) ||
-                           (fromhost_addr && mem_read_addr == fromhost_addr) ||
-                           (CLINT_BASE <= mem_read_addr && mem_read_addr < (CLINT_BASE + CLINT_SIZE)))));
-
-      // check the type is compliant with writeback first
-      if ((type == 0 || type == 1))
-        scalar_wb = true;
-      if (type == 2) {
-        vector_wb = true;
+      for (auto regwrite : log) {
+        int rd = regwrite.first >> 4;
+        int type = regwrite.first & 0xf;
+        // 0 => int
+        // 1 => fp
+        // 2 => vec
+        // 3 => vec hint
+        // 4 => csr
+        if ((rd != 0 && type == 0) || type == 1) {
+          // Override reads from some CSRs
+          uint64_t csr_addr = (insn >> 20) & 0xfff;
+          bool csr_read = (insn & 0x7f) == 0x73;
+          if (csr_read) printf("CSR read %lx\n", csr_addr);
+          if (csr_read && (
+                           (csr_addr == 0xf13) || // mimpid
+                           (csr_addr == 0xf12) || // marchid
+                           (csr_addr == 0xf11) || // mvendorid
+                           (csr_addr == 0xb00) || // mcycle
+                           (csr_addr == 0xb02) || // minstret
+                           (csr_addr >= 0x3b0 && csr_addr <= 0x3ef) // pmpaddr
+                           )) {
+            printf("CSR override\n");
+            s->XPR.write(rd, wdata);
+          } else if (!mem_read.empty() &&
+                     ((magic_addrs.count(mem_read_addr) ||
+                       (tohost_addr && mem_read_addr == tohost_addr) ||
+                       (fromhost_addr && mem_read_addr == fromhost_addr) ||
+                       (CLINT_BASE <= mem_read_addr &&
+                        mem_read_addr < (CLINT_BASE + CLINT_SIZE))))) {
+            // Don't check reads from tohost, reads from magic memory, or reads
+            // from clint Technically this could be buggy because log_mem_read
+            // only reports vaddrs, but no software ever should access
+            // tohost/fromhost/clint with vaddrs anyways
+            printf("Read override %lx\n", mem_read_addr);
+            if (mem_read_addr == CLINT_BASE + 4) {
+              s->mip->backdoor_write_with_mask(MIP_MSIP, 0);
+            }
+            s->XPR.write(rd, wdata);
+          } else if (wdata != regwrite.second.v[0]) {
+            printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
+                   regwrite.second.v[0], wdata);
+            exit(1);
+          }
+        }
       }
       if (type == 3) continue;
 
