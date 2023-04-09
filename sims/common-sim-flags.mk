@@ -32,6 +32,7 @@ SIM_LDFLAGS = \
 	$(LRISCV) \
 	-lfesvr \
 	-ldramsim \
+    -lrt \
 	$(EXTRA_SIM_LDFLAGS)
 
 CLOCK_PERIOD ?= 1.0
