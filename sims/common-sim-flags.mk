@@ -32,4 +32,5 @@ SIM_LDFLAGS = \
 	$(LRISCV) \
 	-lfesvr \
 	-ldramsim \
+    -lrt \
 	$(EXTRA_SIM_LDFLAGS)
