@@ -321,9 +321,10 @@ extern "C" void cospike_cosim(long long int cycle,
     p->clear_waiting_for_interrupt();
     printf("%d Cosim: %lx", cycle, iaddr);
     if (has_wdata) {
-      printf(" %lx", wdata);
+      printf(" s: %lx", wdata);
     }
     if (has_vwdata) {
+	  printf(" v:");
       printf(" %llx", vwdata_0);
       printf(" %llx", vwdata_1);
       printf(" %llx", vwdata_2);
@@ -368,11 +369,6 @@ extern "C" void cospike_cosim(long long int cycle,
       uint64_t w_data = std::get<1>(memwrite);
       if ((waddr == CLINT_BASE + 4*hartid) && w_data == 0) {
         s->mip->backdoor_write_with_mask(MIP_MSIP, 0);
-      }
-      // Try to remember magic_mem addrs, and ignore these in the future
-      if ( waddr == tohost_addr && w_data >= info->mem0_base && w_data < (info->mem0_base + info->mem0_size)) {
-        printf("Probable magic mem %lx\n", w_data);
-        magic_addrs.insert(w_data);
       }
       // Try to remember magic_mem addrs, and ignore these in the future
       if ( waddr == tohost_addr && w_data >= info->mem0_base && w_data < (info->mem0_base + info->mem0_size)) {
@@ -424,18 +420,13 @@ extern "C" void cospike_cosim(long long int cycle,
             // only reports vaddrs, but no software ever should access
             // tohost/fromhost/clint with vaddrs anyways
             printf("Read override %lx\n", mem_read_addr);
-            if (mem_read_addr == CLINT_BASE + 4) {
-              s->mip->backdoor_write_with_mask(MIP_MSIP, 0);
-			  s->XPR.write(rd, 0);
-            } else {
-				s->XPR.write(rd, wdata);
-			}
+            s->XPR.write(rd, wdata);
           } else if (wdata != regwrite.second.v[0]) {
             printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
                    regwrite.second.v[0], wdata);
             exit(1);
           }
-	if (has_vwdata) {
+//	if (has_vwdata) {
         // type 3 only signals the following groups are vector, we ignore it for now
         if (type == 2) {
           int size = p->VU.VLEN;
@@ -445,7 +436,7 @@ extern "C" void cospike_cosim(long long int cycle,
           	  if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
           	}
 		  }
-        }
+ //       }
 
 	}
 
