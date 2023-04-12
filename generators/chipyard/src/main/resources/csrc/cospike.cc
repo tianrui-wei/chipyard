@@ -129,26 +129,26 @@ extern "C" void cospike_cosim(long long int cycle,
     uint64_t default_boot_addr = 0x80000000;
     boot_addr_reg->store(0, 8, (const uint8_t*)(&default_boot_addr));
 
-	for (auto& mem : mems) {
-		if (mem.first == info->mem0_base) {
-      std::string path_name = "chipyard-cosim-" + std::to_string(getpid());
-			ssize_t mem_size = mem.second->size();
-      int shared_fd = shm_open(path_name.c_str(), O_EXCL | O_RDWR, 0600);
-      if (shared_fd < 0) {
-        std::perror("[mm_t] shm_open for backing storage failed");
-        exit(-1);
+    for (auto& mem : mems) {
+      if (mem.first == info->mem0_base) {
+        std::string path_name = "chipyard-cosim-" + std::to_string(getpid());
+        ssize_t mem_size = mem.second->size();
+        int shared_fd = shm_open(path_name.c_str(), O_EXCL | O_RDWR, 0600);
+        if (shared_fd < 0) {
+          std::perror("[mm_t] shm_open for backing storage failed");
+          exit(-1);
+        }
+        uint8_t *data = (uint8_t *) mmap(
+          NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, shared_fd, 0);
+        if (data == MAP_FAILED) {
+          std::perror("[mm_t] mmap for backing storage failed");
+          exit(-1);
+        }
+        mem.second->store(0, mem_size,(const uint8_t *) data);
+        munmap(data, mem_size);
+        close(shared_fd);
       }
-      uint8_t *data = (uint8_t *) mmap(
-        NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, shared_fd, 0);
-      if (data == MAP_FAILED) {
-        std::perror("[mm_t] mmap for backing storage failed");
-        exit(-1);
-      }
-			mem.second->store(0, mem_size,(const uint8_t *) data);
-      munmap(data, mem_size);
-      close(shared_fd);
-		}
-	}
+    }
 
     // Don't actually build a clint
     mem_t* clint_mem = new mem_t(CLINT_SIZE);
@@ -324,7 +324,7 @@ extern "C" void cospike_cosim(long long int cycle,
       printf(" s: %lx", wdata);
     }
     if (has_vwdata) {
-	  printf(" v:");
+      printf(" v:");
       printf(" %llx", vwdata_0);
       printf(" %llx", vwdata_1);
       printf(" %llx", vwdata_2);
@@ -380,77 +380,84 @@ extern "C" void cospike_cosim(long long int cycle,
     bool scalar_wb = false;
     bool vector_wb = false;
     uint32_t vector_cnt = 0;
+    uint32_t vector_pre = 0;
 
     for (auto &regwrite : log) {
 
+      // if (regwrite.first == 0) continue;
+
       //TODO: scaling to multi issue reads?
       reg_t mem_read_addr = mem_read.empty() ? 0 : std::get<0>(mem_read[0]);
-      for (auto regwrite : log) {
-        // if (regwrite.first == 0) continue;
-        int rd = regwrite.first >> 4;
-        int type = regwrite.first & 0xf;
-        // 0 => int
-        // 1 => fp
-        // 2 => vec
-        // 3 => vec hint
-        // 4 => csr
-        if ((rd != 0 && type == 0) || type == 1) {
-          // Override reads from some CSRs
-          uint64_t csr_addr = (insn >> 20) & 0xfff;
-          bool csr_read = (insn & 0x7f) == 0x73;
-          if (csr_read)
-            printf("CSR read %lx\n", csr_addr);
-          if (csr_read && ((csr_addr == 0xf13) ||                   // mimpid
-                           (csr_addr == 0xf12) ||                   // marchid
-                           (csr_addr == 0xf11) ||                   // mvendorid
-                           (csr_addr == 0xb00) ||                   // mcycle
-                           (csr_addr == 0xb02) ||                   // minstret
-                           (csr_addr >= 0x3b0 && csr_addr <= 0x3ef) // pmpaddr
-                           )) {
-            printf("CSR override\n");
-            s->XPR.write(rd, wdata);
-          } else if (!mem_read.empty() &&
-                     ((magic_addrs.count(mem_read_addr) ||
-                       (tohost_addr && mem_read_addr == tohost_addr) ||
-                       (fromhost_addr && mem_read_addr == fromhost_addr) ||
-                       (CLINT_BASE <= mem_read_addr &&
-                        mem_read_addr < (CLINT_BASE + CLINT_SIZE))))) {
-            // Don't check reads from tohost, reads from magic memory, or reads
-            // from clint Technically this could be buggy because log_mem_read
-            // only reports vaddrs, but no software ever should access
-            // tohost/fromhost/clint with vaddrs anyways
-            printf("Read override %lx\n", mem_read_addr);
-            s->XPR.write(rd, wdata);
-          } else if (wdata != regwrite.second.v[0]) {
-            printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
-                   regwrite.second.v[0], wdata);
-            exit(1);
-          }
-//	if (has_vwdata) {
-        // type 3 only signals the following groups are vector, we ignore it for now
-        if (type == 2) {
-          int size = p->VU.VLEN;
-          if(((size-1) & size) != 0) {
-			const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
-          	for (int idx = size / 64 -1; idx >= 0; --idx) {
-          	  if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
-          	}
-		  }
- //       }
 
-	}
+      int rd = regwrite.first >> 4;
+      int type = regwrite.first & 0xf;
+      // 0 => int
+      // 1 => fp
+      // 2 => vec
+      // 3 => vec hint
+      // 4 => csr
 
+      bool ignore_read = (!mem_read.empty() &&
+                          ((magic_addrs.count(mem_read_addr) ||
+                            (tohost_addr && mem_read_addr == tohost_addr) ||
+                            (fromhost_addr && mem_read_addr == fromhost_addr) ||
+                            (CLINT_BASE <= mem_read_addr &&
+                             mem_read_addr < (CLINT_BASE + CLINT_SIZE)))));
+
+      // check the type is compliant with writeback first
+      if ((type == 0 || type == 1))
+        scalar_wb = true;
+      if (type == 2) {
+        vector_wb = true;
+        vector_pre++;
+      }
+      if (type == 3 && !vector_wb) {
+        std::perror("cospike internal error: no vector write back\n");
+        exit(-1);
+      }
+
+
+      if ((rd != 0 && type == 0) || type == 1) {
+        // Override reads from some CSRs
+        uint64_t csr_addr = (insn >> 20) & 0xfff;
+        bool csr_read = (insn & 0x7f) == 0x73;
+        if (csr_read)
+          printf("CSR read %lx\n", csr_addr);
+        if (csr_read && ((csr_addr == 0xf13) ||                   // mimpid
+                         (csr_addr == 0xf12) ||                   // marchid
+                         (csr_addr == 0xf11) ||                   // mvendorid
+                         (csr_addr == 0xb00) ||                   // mcycle
+                         (csr_addr == 0xb02) ||                   // minstret
+                         (csr_addr >= 0x3b0 && csr_addr <= 0x3ef) // pmpaddr
+                         )) {
+          printf("CSR override\n");
+          s->XPR.write(rd, wdata);
+        } else if (ignore_read)  {
+          // Don't check reads from tohost, reads from magic memory, or reads
+          // from clint Technically this could be buggy because log_mem_read
+          // only reports vaddrs, but no software ever should access
+          // tohost/fromhost/clint with vaddrs anyways
+          printf("Read override %lx\n", mem_read_addr);
+          s->XPR.write(rd, wdata);
+        } else if (wdata != regwrite.second.v[0]) {
+          printf("%d wdata mismatch reg %d %lx != %lx\n", cycle, rd,
+                 regwrite.second.v[0], wdata);
+          exit(1);
         }
+      }
 
+      // ignore the case where type is 2
+      // a 3 would only be followed by a 2
+      if (type == 3) {
+        vector_cnt++;
         // type 3 only signals the following groups are vector, we ignore it for now
-//        if (type == 2) {
-//          int size = p->VU.VLEN;
-//          assert(((size-1) & size) == 0);
-//          const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
-//          for (int idx = size / 64 -1; idx >= 0; --idx) {
-//            if (idx == 7) {}
-//          }
-//        }
+        int size = p->VU.VLEN;
+        if(((size-1) & size) != 0) {
+          const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+          for (int idx = size / 64 -1; idx >= 0; --idx) {
+            if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
+          }
+        }
       }
       if (type == 3) continue;
 
@@ -492,5 +499,20 @@ extern "C" void cospike_cosim(long long int cycle,
       // }
     }
 
+    if (scalar_wb ^ has_wdata) {
+      printf("Scalar behavior divergence between spike and DUT\n");
+      exit(-1);
+    }
+
+    if (vector_wb ^ has_vwdata) {
+      printf("vector behavior divergence between spike and DUT\n");
+      exit(-1);
+    }
+#ifdef SPIKE_DEBUG
+    if (vector_wb) {
+      printf("vector_cnt = %x\n", vector_cnt);
+      printf("vector_pre = %x\n", vector_pre);
+    }
+#endif
   }
 }
