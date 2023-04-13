@@ -284,7 +284,6 @@ extern "C" void cospike_cosim(long long int cycle,
     bool scalar_wb = false;
     bool vector_wb = false;
     uint32_t vector_cnt = 0;
-    uint32_t vector_pre = 0;
 
     for (auto &regwrite : log) {
 
@@ -311,13 +310,9 @@ extern "C" void cospike_cosim(long long int cycle,
       // check the type is compliant with writeback first
       if ((type == 0 || type == 1))
         scalar_wb = true;
-      if (type == 2) {
+      if (type == 2) continue;
+      if (type == 3) {
         vector_wb = true;
-        vector_pre++;
-      }
-      if (type == 3 && !vector_wb) {
-        std::perror("cospike internal error: no vector write back\n");
-        exit(-1);
       }
 
 
@@ -356,11 +351,12 @@ extern "C" void cospike_cosim(long long int cycle,
         vector_cnt++;
         // type 3 only signals the following groups are vector, we ignore it for now
         int size = p->VU.VLEN;
-        if(((size-1) & size) != 0) {
-          const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
-          for (int idx = size / 64 -1; idx >= 0; --idx) {
-            if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
-          }
+        if (unlikely(((size-1)&size) != 0)) {
+          printf("Internal Error: VLEN is error");
+        }
+        const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+        for (int idx = size / 64 -1; idx >= 0; --idx) {
+          if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
         }
       }
     }
