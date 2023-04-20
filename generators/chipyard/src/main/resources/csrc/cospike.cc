@@ -550,11 +550,5 @@ extern "C" void cospike_cosim(long long int cycle,
       printf("vector behavior divergence between spike and DUT\n");
       exit(-1);
     }
-#ifdef SPIKE_DEBUG
-    if (vector_wb) {
-      printf("vector_cnt = %x\n", vector_cnt);
-      printf("vector_pre = %x\n", vector_pre);
-    }
-#endif
   }
 }
