@@ -390,6 +390,7 @@ extern "C" void cospike_cosim(long long int cycle,
 
       int rd = regwrite.first >> 4;
       int type = regwrite.first & 0xf;
+
       // 0 => int
       // 1 => fp
       // 2 => vec
@@ -448,12 +449,56 @@ extern "C" void cospike_cosim(long long int cycle,
         // type 3 only signals the following groups are vector, we ignore it for now
         int size = p->VU.VLEN;
         if (unlikely(((size-1)&size) != 0)) {
-          printf("Internal Error: VLEN is error");
+          printf("Internal Error: VLEN is not pow2\n");
+          exit(1);
         }
         const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+        bool wb_mismatch = false;
         for (int idx = size / 64 -1; idx >= 0; --idx) {
-          if (idx == 7) {printf("vwdata 0 is %lld, spike commit data is %lld\n", vwdata_0, arr[idx]);}
+          uint64_t s_vslice = arr[idx];
+          uint64_t dut_vslice;
+          switch (idx) {
+            case 0: dut_vslice = vwdata_0;
+            case 1: dut_vslice = vwdata_1;
+            case 2: dut_vslice = vwdata_2;
+            case 3: dut_vslice = vwdata_3;
+            case 4: dut_vslice = vwdata_4;
+            case 5: dut_vslice = vwdata_5;
+            case 6: dut_vslice = vwdata_6;
+            case 7: dut_vslice = vwdata_7;
+          }
+          if (s_vslice != dut_vslice) {
+            wb_mismatch = true;
+          }
         }
+        if (wb_mismatch) {
+          for (int idx = size / 64 - 1; idx >= 0; --idx) {
+            uint64_t s_vslice = arr[idx];
+            uint64_t dut_vslice;
+            switch (idx) {
+            case 0:
+              dut_vslice = vwdata_0;
+            case 1:
+              dut_vslice = vwdata_1;
+            case 2:
+              dut_vslice = vwdata_2;
+            case 3:
+              dut_vslice = vwdata_3;
+            case 4:
+              dut_vslice = vwdata_4;
+            case 5:
+              dut_vslice = vwdata_5;
+            case 6:
+              dut_vslice = vwdata_6;
+            case 7:
+              dut_vslice = vwdata_7;
+            }
+            printf("[cosim] vwdata: spike: %lx, DUT: %lx, index: %d\n", s_vslice, dut_vslice, idx);
+          }
+          printf("Error: vector writeback mismatch between spike and DUT!\n");
+          exit(1);
+        }
+
       }
       if (type == 3) continue;
 
