@@ -407,10 +407,10 @@ extern "C" void cospike_cosim(long long int cycle,
       // check the type is compliant with writeback first
       if ((type == 0 || type == 1))
         scalar_wb = true;
-      if (type == 2) continue;
-      if (type == 3) {
+      if (type == 2) {
         vector_wb = true;
       }
+      if (type == 3) continue;
 
 
       if ((rd != 0 && type == 0) || type == 1) {
@@ -444,7 +444,7 @@ extern "C" void cospike_cosim(long long int cycle,
 
       // ignore the case where type is 2
       // a 3 would only be followed by a 2
-      if (type == 3) {
+      if (type == 2) {
         vector_cnt++;
         // type 3 only signals the following groups are vector, we ignore it for now
         int size = p->VU.VLEN;
@@ -453,19 +453,20 @@ extern "C" void cospike_cosim(long long int cycle,
           exit(1);
         }
         const uint64_t *arr = (const uint64_t*) &p->VU.elt<uint8_t>(rd, 0);
+        //const uint64_t *arr = (const uint64_t*) regwrite.second.v;
         bool wb_mismatch = false;
         for (int idx = size / 64 -1; idx >= 0; --idx) {
           uint64_t s_vslice = arr[idx];
           uint64_t dut_vslice;
           switch (idx) {
-            case 0: dut_vslice = vwdata_0;
-            case 1: dut_vslice = vwdata_1;
-            case 2: dut_vslice = vwdata_2;
-            case 3: dut_vslice = vwdata_3;
-            case 4: dut_vslice = vwdata_4;
-            case 5: dut_vslice = vwdata_5;
-            case 6: dut_vslice = vwdata_6;
-            case 7: dut_vslice = vwdata_7;
+            case 0: dut_vslice = vwdata_0; break;
+            case 1: dut_vslice = vwdata_1; break;
+            case 2: dut_vslice = vwdata_2; break;
+            case 3: dut_vslice = vwdata_3; break;
+            case 4: dut_vslice = vwdata_4; break;
+            case 5: dut_vslice = vwdata_5; break;
+            case 6: dut_vslice = vwdata_6; break;
+            case 7: dut_vslice = vwdata_7; break;
           }
           if (s_vslice != dut_vslice) {
             wb_mismatch = true;
@@ -476,22 +477,22 @@ extern "C" void cospike_cosim(long long int cycle,
             uint64_t s_vslice = arr[idx];
             uint64_t dut_vslice;
             switch (idx) {
-            case 0:
-              dut_vslice = vwdata_0;
-            case 1:
-              dut_vslice = vwdata_1;
-            case 2:
-              dut_vslice = vwdata_2;
-            case 3:
-              dut_vslice = vwdata_3;
-            case 4:
-              dut_vslice = vwdata_4;
-            case 5:
-              dut_vslice = vwdata_5;
-            case 6:
-              dut_vslice = vwdata_6;
-            case 7:
-              dut_vslice = vwdata_7;
+              case 0:
+                dut_vslice = vwdata_0; break;
+              case 1:
+                dut_vslice = vwdata_1; break;
+              case 2:
+                dut_vslice = vwdata_2; break;
+              case 3:
+                dut_vslice = vwdata_3; break;
+              case 4:
+                dut_vslice = vwdata_4; break;
+              case 5:
+                dut_vslice = vwdata_5; break;
+              case 6:
+                dut_vslice = vwdata_6; break;
+              case 7:
+                dut_vslice = vwdata_7; break;
             }
             printf("[cosim] vwdata: spike: %lx, DUT: %lx, index: %d\n", s_vslice, dut_vslice, idx);
           }
