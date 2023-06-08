@@ -79,14 +79,14 @@ object SpikeCosim
       val signed = Wire(SInt(64.W))
       signed := insn.iaddr.asSInt
       cosim.io.trace(i).iaddr := signed.asUInt
-      cosim.io.trace(i).insn := trace.insns(i).insn
-      cosim.io.trace(i).exception := trace.insns(i).exception
-      cosim.io.trace(i).interrupt := trace.insns(i).interrupt
-      cosim.io.trace(i).cause := trace.insns(i).cause
-      cosim.io.trace(i).has_wdata := trace.insns(i).swb && trace.insns(i).wdata.isDefined.B
-      cosim.io.trace(i).has_vwdata := trace.insns(i).vwb && trace.insns(i).vwdata.isDefined.B
-      cosim.io.trace(i).wdata := trace.insns(i).wdata.getOrElse(0.U)
-      cosim.io.trace(i).vwdata := trace.insns(i).vwdata.getOrElse(0.U).asTypeOf(Vec(8, UInt(64.W)))
+      cosim.io.trace(i).insn := insn.insn
+      cosim.io.trace(i).exception := insn.exception
+      cosim.io.trace(i).interrupt := insn.interrupt
+      cosim.io.trace(i).cause := insn.cause
+      cosim.io.trace(i).has_wdata := insn.swb && insn.wdata.isDefined.B
+      cosim.io.trace(i).has_vwdata := insn.vwb && insn.vwdata.isDefined.B
+      cosim.io.trace(i).wdata := insn.wdata.getOrElse(0.U)
+      cosim.io.trace(i).vwdata := insn.vwdata.getOrElse(0.U).asTypeOf(Vec(8, UInt(64.W)))
       cosim.io.trace(i).priv := insn.priv
     }
   }
